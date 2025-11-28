@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>心算反射特訓 ⚡</title>
+    
+    <style>
+        :root { --primary: #6366F1; --accent: #EF4444; --bg: #F8FAFC; --card: #FFFFFF; --success: #22C55E; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; min-height: 100vh; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+        
+        .container { background-color: var(--card); width: 100%; max-width: 500px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; text-align: center; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+        
+        /* 標題與設定 */
+        h1 { margin: 0 0 10px 0; color: #333; font-size: 1.5rem; }
+        .setting-group { margin-bottom: 15px; text-align: left; }
+        .setting-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        select, input { width: 100%; padding: 12px; border: 2px solid #E2E8F0; border-radius: 10px; font-size: 1rem; background: #fff; -webkit-appearance: none; }
+        
+        /* 遊戲畫面 */
+        #game-screen { display: none; height: 100%; flex-direction: column; justify-content: space-between; }
+        
+        /* 計時條 */
+        .timer-container { width: 100%; height: 10px; background: #E2E8F0; border-radius: 5px; overflow: hidden; margin-bottom: 20px; }
+        .timer-bar { height: 100%; background: var(--accent); width: 100%; transition: width 0.1s linear; }
+        
+        /* 題目顯示 */
+        .question-box { font-size: 4rem; font-weight: 800; color: #333; margin: 10px 0; letter-spacing: 2px; }
+        .answer-box { font-size: 2.5rem; height: 60px; color: var(--primary); border-bottom: 3px solid var(--primary); min-width: 100px; display: inline-block; margin-bottom: 20px; }
+        
+        /* 自製數字鍵盤 (優化iPad體驗) */
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: auto; }
+        .num-btn { background: #F1F5F9; border: none; border-radius: 12px; padding: 15px 0; font-size: 1.8rem; font-weight: bold; color: #475569; cursor: pointer; box-shadow: 0 4px 0 #CBD5E1; transition: transform 0.1s; }
+        .num-btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn-enter { background-color: var(--success); color: white; box-shadow: 0 4px 0 #15803D; }
+        .btn-clear { background-color: var(--accent); color: white; box-shadow: 0 4px 0 #B91C1C; }
+        
+        /* 結果畫面 */
+        #result-screen { display: none; }
+        .score-big { font-size: 4rem; font-weight: bold; color: var(--primary); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+        .stat-box { background: #F8FAFC; padding: 10px; border-radius: 10px; border: 1px solid #E2E8F0; }
+        
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 15px; width: 100%; border-radius: 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        /* 登入按鈕 */
+        .login-header { display: flex; justify-content: flex-end; margin-bottom: 10px; align-items: center; }
+        .user-name { font-size: 0.8rem; color: #666; margin-right: 10px; }
+        .btn-small { padding: 5px 10px; font-size: 0.8rem; background: #3B82F6; color: white; border: none; border-radius: 5px; cursor: pointer; }
+
+        /* 答對答錯動畫 */
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+        .shake { animation: shake 0.3s; color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="login-header">
+        <span id="user-info" class="user-name" style="display:none;"></span>
+        <button id="login-btn" class="btn-small" onclick="toggleLogin()">登入儲存紀錄</button>
+    </div>
+
+    <div id="setup-screen">
+        <h1>⚡ 心算反射特訓</h1>
+        <p style="color:#666; font-size:0.9rem;">目標：訓練看到題目不經思考直接反應</p>
+        
+        <div class="setting-group">
+            <label>範圍設定</label>
+            <select id="range-select">
+                <option value="1">個位數 (1-10)</option>
+                <option value="2">兩位數 (10-99)</option>
+                <option value="3">三位數 (100-999)</option>
+                <option value="custom1">進階：個位 + 兩位 (如 7 + 15)</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>運算符號</label>
+            <select id="op-select">
+                <option value="add">➕ 只練加法</option>
+                <option value="sub">➖ 只練減法 (不會有負數)</option>
+                <option value="mix">🔀 加減混合</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>限時 (秒)</label>
+            <select id="time-select">
+                <option value="5">5 秒 (地獄模式)</option>
+                <option value="10" selected>10 秒 (標準)</option>
+                <option value="20">20 秒 (練習)</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>題數</label>
+            <select id="q-count">
+                <option value="10">10 題</option>
+                <option value="20">20 題</option>
+                <option value="50">50 題 (耐力賽)</option>
+            </select>
+        </div>
+
+        <button class="btn-primary" onclick="startGame()">開始挑戰</button>
+    </div>
+
+    <div id="game-screen">
+        <div>
+            <div class="timer-container">
+                <div id="timer-bar" class="timer-bar"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; color:#999; font-size:0.9rem;">
+                <span>進度: <span id="current-q">1</span>/<span id="total-q">10</span></span>
+                <span>得分: <span id="current-score">0</span></span>
+            </div>
+            
+            <div id="question-box" class="question-box">5 + 7</div>
+            <div id="answer-box" class="answer-box"></div>
+        </div>
+
+        <div class="numpad">
+            <button class="num-btn" onclick="inputNum(1)">1</button>
+            <button class="num-btn" onclick="inputNum(2)">2</button>
+            <button class="num-btn" onclick="inputNum(3)">3</button>
+            <button class="num-btn" onclick="inputNum(4)">4</button>
+            <button class="num-btn" onclick="inputNum(5)">5</button>
+            <button class="num-btn" onclick="inputNum(6)">6</button>
+            <button class="num-btn" onclick="inputNum(7)">7</button>
+            <button class="num-btn" onclick="inputNum(8)">8</button>
+            <button class="num-btn" onclick="inputNum(9)">9</button>
+            <button class="num-btn btn-clear" onclick="clearInput()">C</button>
+            <button class="num-btn" onclick="inputNum(0)">0</button>
+            <button class="num-btn btn-enter" onclick="submitAnswer()">Go</button>
+        </div>
+    </div>
+
+    <div id="result-screen">
+        <h2>成績單</h2>
+        <div class="score-big" id="final-score">80</div>
+        <p>分</p>
+        
+        <div class="stat-grid">
+            <div class="stat-box">
+                <div style="font-size:0.8rem; color:#666;">平均速度</div>
+                <div style="font-size:1.2rem; font-weight:bold;" id="avg-speed">--s</div>
+            </div>
+            <div class="stat-box">
+                <div style="font-size:0.8rem; color:#666;">正確率</div>
+                <div style="font-size:1.2rem; font-weight:bold;" id="accuracy">--%</div>
+            </div>
+        </div>
+
+        <div style="text-align:left; margin-top:10px;">
+            <p style="font-weight:bold; color:#EF4444;">❌ 錯題檢討：</p>
+            <ul id="wrong-list" style="color:#555; font-size:0.9rem; padding-left:20px;"></ul>
+        </div>
+
+        <button class="btn-primary" onclick="location.reload()">再玩一次</button>
+    </div>
+</div>
+
+<script type="module">
+    // -----------------------------------------------------------
+    // ⚠️ 請換上您的 Firebase Config (與默書 App 通用)
+    // -----------------------------------------------------------
+    const firebaseConfig = {
+        apiKey: "AIzaSyCanvj4YN4pK9rqrwDBNQxh8moEpCKnE_s",
+        authDomain: "dictationhelper-404f8.firebaseapp.com",
+        projectId: "dictationhelper-404f8",
+        storageBucket: "dictationhelper-404f8.firebasestorage.app",
+        messagingSenderId: "177896505968",
+        appId: "1:177896505968:web:a147e5648204f472986ab5"
+    };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUser = null;
+    let questions = [];
+    let currentIdx = 0;
+    let score = 0;
+    let currentInput = "";
+    let timerInterval;
+    let timeLeft;
+    let timeLimit = 10;
+    let wrongLog = [];
+    let startTime;
+    let totalTimeTaken = 0;
+
+    // --- 身份驗證 ---
+    window.toggleLogin = function() {
+        if (auth.currentUser) signOut(auth).then(()=>alert("已登出"));
+        else signInWithPopup(auth, provider).catch(e=>alert(e.message));
+    };
+
+    onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        const btn = document.getElementById('login-btn');
+        const info = document.getElementById('user-info');
+        if (user) {
+            btn.innerText = "登出";
+            info.style.display = "inline";
+            info.innerText = user.displayName;
+        } else {
+            btn.innerText = "登入儲存";
+            info.style.display = "none";
+        }
+    });
+
+    // --- 遊戲邏輯 ---
+    
+    // 產生題目
+    function generateQuestion(range, op) {
+        let n1, n2, operator, answer;
+        
+        // 數字範圍邏輯
+        const getNum = (r) => {
+            if(r === '1') return Math.floor(Math.random() * 9) + 1; // 1-9
+            if(r === '2') return Math.floor(Math.random() * 90) + 10; // 10-99
+            if(r === '3') return Math.floor(Math.random() * 900) + 100; // 100-999
+            return Math.floor(Math.random() * 50) + 1;
+        };
+
+        if (range === 'custom1') {
+            n1 = Math.floor(Math.random() * 90) + 10; // 兩位
+            n2 = Math.floor(Math.random() * 9) + 1;   // 個位
+        } else {
+            n1 = getNum(range);
+            n2 = getNum(range);
+        }
+
+        // 運算符號
+        if (op === 'mix') operator = Math.random() > 0.5 ? '+' : '-';
+        else operator = op === 'add' ? '+' : '-';
+
+        // 確保減法不出現負數
+        if (operator === '-') {
+            if (n1 < n2) [n1, n2] = [n2, n1]; // 交換
+            answer = n1 - n2;
+        } else {
+            answer = n1 + n2;
+        }
+
+        return { n1, n2, op: operator, ans: answer };
+    }
+
+    window.startGame = function() {
+        const range = document.getElementById('range-select').value;
+        const op = document.getElementById('op-select').value;
+        timeLimit = parseInt(document.getElementById('time-select').value);
+        const count = parseInt(document.getElementById('q-count').value);
+
+        questions = [];
+        for(let i=0; i<count; i++) {
+            questions.push(generateQuestion(range, op));
+        }
+
+        currentIdx = 0;
+        score = 0;
+        wrongLog = [];
+        totalTimeTaken = 0;
+        
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
+        document.getElementById('total-q').innerText = count;
+        
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        if (currentIdx >= questions.length) {
+            endGame();
+            return;
+        }
+
+        const q = questions[currentIdx];
+        document.getElementById('current-q').innerText = currentIdx + 1;
+        document.getElementById('current-score').innerText = score;
+        document.getElementById('question-box').innerText = `${q.n1} ${q.op} ${q.n2}`;
+        document.getElementById('answer-box').innerText = "";
+        currentInput = "";
+        
+        startTime = Date.now();
+        startTimer();
+    }
+
+    function startTimer() {
+        timeLeft = timeLimit;
+        const bar = document.getElementById('timer-bar');
+        bar.style.width = "100%";
+        bar.style.backgroundColor = "#EF4444";
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            const pct = (timeLeft / timeLimit) * 100;
+            bar.style.width = pct + "%";
+            
+            if (pct > 50) bar.style.backgroundColor = "#22C55E";
+            else if (pct > 20) bar.style.backgroundColor = "#F59E0B";
+            else bar.style.backgroundColor = "#EF4444";
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                handleAnswer(false, true); // 超時算錯
+            }
+        }, 100);
+    }
+
+    // --- 鍵盤輸入 ---
+    window.inputNum = function(num) {
+        if (currentInput.length < 5) {
+            currentInput += num;
+            document.getElementById('answer-box').innerText = currentInput;
+        }
+    }
+    window.clearInput = function() {
+        currentInput = "";
+        document.getElementById('answer-box').innerText = "";
+    }
+    window.submitAnswer = function() {
+        if (currentInput === "") return;
+        const userAns = parseInt(currentInput);
+        const correctAns = questions[currentIdx].ans;
+        handleAnswer(userAns === correctAns, false);
+    }
+
+    function handleAnswer(isCorrect, isTimeout) {
+        clearInterval(timerInterval);
+        const timeUsed = (Date.now() - startTime) / 1000;
+        totalTimeTaken += timeUsed;
+
+        if (isCorrect) {
+            score += 10;
+        } else {
+            const q = questions[currentIdx];
+            wrongLog.push(`${q.n1} ${q.op} ${q.n2} = ${q.ans} (你答: ${isTimeout ? '超時' : currentInput})`);
+            
+            // 視覺回饋：震動
+            const box = document.getElementById('question-box');
+            box.classList.add('shake');
+            setTimeout(()=>box.classList.remove('shake'), 300);
+        }
+
+        currentIdx++;
+        setTimeout(loadQuestion, 200); // 稍微停頓一下再下一題
+    }
+
+    function endGame() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        
+        document.getElementById('final-score').innerText = score;
+        
+        const avg = (totalTimeTaken / questions.length).toFixed(1);
+        document.getElementById('avg-speed').innerText = avg + "s";
+        
+        const acc = Math.round((score / (questions.length * 10)) * 100);
+        document.getElementById('accuracy').innerText = acc + "%";
+
+        const list = document.getElementById('wrong-list');
+        list.innerHTML = "";
+        if (wrongLog.length > 0) {
+            wrongLog.forEach(w => {
+                list.innerHTML += `<li>${w}</li>`;
+            });
+        } else {
+            list.innerHTML = "<li style='color:green'>全對！太神了！🎉</li>";
+        }
+
+        saveToCloud(score, avg, acc);
+    }
+
+    async function saveToCloud(score, avg, acc) {
+        if (!currentUser) return;
+        try {
+            await setDoc(doc(db, "math_scores", currentUser.uid), {
+                lastPlayed: new Date(),
+                history: arrayUnion({
+                    date: new Date(),
+                    score: score,
+                    avgSpeed: avg,
+                    accuracy: acc,
+                    mode: document.getElementById('range-select').options[document.getElementById('range-select').selectedIndex].text
+                })
+            }, { merge: true });
+        } catch (e) { console.error("存檔失敗", e); }
+    }
+
+</script>
+</body>
+</html>
