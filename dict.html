@@ -482,17 +482,18 @@ signInWithPopup(auth, provider)
     window.prevSegment = function() { if (currentIndex > 0) { currentIndex--; loadSegment(); } }
     window.nextSegment = function() { if (currentIndex < segments.length - 1) { currentIndex++; loadSegment(); } }
 
-    // *** 雙語發音核心 logic ***
+    /// *** 雙語發音核心 logic (已加入女聲與清晰度優化) ***
     window.speakCurrent = function() {
         window.speechSynthesis.cancel();
         
         let textToSpeak = segments[currentIndex];
-        const lang = document.getElementById('lang-select').value; // 取得目前語言
+        // 取得目前語言 (假設您的選單值是 'zh-HK' 或 'en-GB'/'en-US')
+        const lang = document.getElementById('lang-select').value; 
         const shouldReadPunc = document.getElementById('punc-toggle').checked;
         
+        // === 1. 保留您原本的標點符號處理邏輯 ===
         if (shouldReadPunc) {
-            if (lang === 'zh-HK') {
-                // 中文標點
+            if (lang.includes('zh')) { // 只要是中文 (zh-HK / zh-TW)
                 textToSpeak = textToSpeak
                     .replace(/，/g, "，逗號，").replace(/。/g, "。句號。").replace(/？/g, "？問號？")
                     .replace(/！/g, "！感嘆號！").replace(/、/g, "、頓號、").replace(/：/g, "：冒號：")
@@ -513,18 +514,54 @@ signInWithPopup(auth, provider)
         }
 
         const u = new SpeechSynthesisUtterance(textToSpeak);
-        u.lang = lang; // 動態設定語言 (en-GB 或 zh-HK)
-        u.rate = document.getElementById('speed').value;
-        window.speechSynthesis.speak(u);
-    }
+        
+        // === 2. 新增：強制鎖定高素質女聲 (Samantha) ===
+        const voices = window.speechSynthesis.getVoices();
+        let selectedVoice = null;
 
+        if (lang.includes('en')) {
+            // 英文情況：優先找 iOS 最好聽的女聲 "Samantha"
+            selectedVoice = voices.find(v => v.name === 'Samantha');
+            
+            // 如果找不到 Samantha，找任何美式英文 (通常比英式清楚)
+            if (!selectedVoice) selectedVoice = voices.find(v => v.lang === 'en-US');
+            
+            // 最後保底
+            if (!selectedVoice) selectedVoice = voices.find(v => v.lang.includes('en'));
+            
+        } else if (lang.includes('zh')) {
+            // 中文情況：優先找 iOS 廣東話女聲 "Sin-Ji" (如有)
+            selectedVoice = voices.find(v => v.name === 'Sin-Ji');
+            if (!selectedVoice) selectedVoice = voices.find(v => v.lang === 'zh-HK');
+        }
+
+        // 如果找到了特定的好聲音，就套用
+        if (selectedVoice) {
+            u.voice = selectedVoice;
+            u.lang = selectedVoice.lang; // 同步語言設定
+        } else {
+            u.lang = lang; // 找不到就用回原本的設定
+        }
+
+        // === 3. 語速與音調微調 ===
+        // 讀取您介面上的速度滑桿 (如果滑桿設得太快，這裡不會強制變慢，由您在畫面上拉動決定)
+        const speedVal = document.getElementById('speed').value;
+        u.rate = speedVal; 
+        
+        // 建議：為了更清楚，可以在這裡稍微加一點點音調修正
+        u.pitch = 1.0; 
+
+        window.speechSynthesis.speak(u);
+    };
+
+    // 下面這兩行保留原本的即可
     window.toggleReveal = function() { document.getElementById('word-display').classList.toggle('revealed'); }
 
     window.finishDictation = function() {
         document.getElementById('practice-screen').style.display = 'none';
         document.getElementById('result-screen').style.display = 'block';
         renderGradingList();
-    }
+    };
 
     function renderGradingList() {
         const listDiv = document.getElementById('grading-list');
