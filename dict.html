@@ -366,7 +366,7 @@ signInWithPopup(auth, provider)
         const docSnap = await getDoc(doc(db, "users", currentUser.uid));
         if (docSnap.exists()) {
             const count = docSnap.data().dictationCount || 0;
-            if (count > 500 && (count === 5 || (count > 5 && (count - 5) % 500 === 0))) {
+            if (count > 0 && count % 50 === 0) {
                 showCoffeeModal(count);
             }
         }
