@@ -149,7 +149,7 @@
         </select>
 
         <textarea id="input-text" placeholder="輸入內容... (支援中英文)
- *一個詞語一行*            
+ *一個詞語一行，要斷開就要下一行*            
 水域
 珊瑚
 遺址
@@ -157,7 +157,7 @@
         
         <div style="text-align: left; margin-bottom: 5px;">
             <label for="speed">朗讀速度：</label>
-            <input type="range" id="speed" min="0.5" max="1.2" step="0.1" value="0.8">
+            <input type="range" id="speed" min="0.2" max="1.2" step="0.1" value="0.8">
         </div>
 
         <div class="punc-switch">
@@ -190,7 +190,7 @@
 
         <div class="player-controls">
             <button class="btn-nav" onclick="prevSegment()" id="prev-btn">⏮️</button>
-            <button class="btn-play" onclick="speakCurrent()">🔊</button>
+            <button class="btn-play" onclick="speakCurrent()">🔊重讀</button>
             <button class="btn-nav" onclick="nextSegment()" id="next-btn">⏭️</button>
         </div>
 
